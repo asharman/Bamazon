@@ -1,6 +1,7 @@
 const mysql = require("mysql");
 const inquirer = require("inquirer");
 
+// Create the connection
 const connection = mysql.createConnection({
   host: "localhost",
   port: 3307,
@@ -9,13 +10,16 @@ const connection = mysql.createConnection({
   database: "bamazon"
 });
 
+// The main prompt
 let customerPrompt = () => {
+  // Build out a table of every product
   connection.query("SELECT * FROM products", (err, res) => {
-    function Row(name, department, price, stock) {
+    function Row(name, department, price, stock, sales) {
       (this.Name = name),
         (this.Department = department),
         (this.Price = price),
-        (this.Stock = stock);
+        (this.Stock = stock),
+        (this.Sales = sales);
     }
 
     if (err) throw err;
@@ -27,10 +31,12 @@ let customerPrompt = () => {
         row.product_name,
         row.department_name,
         row.price,
-        row.stock_quantity
+        row.stock_quantity,
+        row.product_sales
       );
     }
-    console.table(data);
+    console.table(data, ["Name", "Department", "Price", "Stock"]);
+    // Ask the user what product they would like to purchase and how many they would like to buy
     inquirer
       .prompt([
         {
@@ -56,14 +62,17 @@ let customerPrompt = () => {
           }
         }
       ])
+      // Update the product when the user purchases it
       .then(res => {
         let selectedItem = data[res.itemIndex];
         let totalCost = selectedItem.Price * parseInt(res.amountToBuy);
-        if (res.amountToBuy < selectedItem.Stock) {
-          let updatedStock = selectedItem.Stock - res.amountToBuy;
+        if (res.amountToBuy <= selectedItem.Stock) {
           connection.query(
             `UPDATE products SET stock_quantity=${selectedItem.Stock -
-              res.amountToBuy} WHERE item_id=${res.itemIndex}`,
+              res.amountToBuy}, product_sales=${selectedItem.Sales +
+              res.amountToBuy * selectedItem.Price} WHERE item_id=${
+              res.itemIndex
+            }`,
             (err, res) => {
               if (err) throw err;
               console.log(
@@ -79,7 +88,5 @@ let customerPrompt = () => {
       });
   });
 };
-
-customerPrompt();
 
 module.exports = customerPrompt;
